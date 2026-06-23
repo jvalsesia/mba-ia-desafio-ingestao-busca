@@ -7,50 +7,37 @@ from dotenv import load_dotenv
 def get_config() -> SimpleNamespace:
     load_dotenv()
 
-    provider = os.getenv("PROVIDER")
-    if not provider:
-        print(
-            "Variável de ambiente PROVIDER não encontrada. "
-            "Copie .env.example para .env e preencha os valores obrigatórios.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    google_api_key = os.getenv("GOOGLE_API_KEY")
 
-    if provider not in ("openai", "gemini"):
-        print(
-            f"Valor inválido para PROVIDER: '{provider}'. Use 'openai' ou 'gemini'.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if provider == "openai":
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            print(
-                "Variável de ambiente OPENAI_API_KEY não encontrada. "
-                "Copie .env.example para .env e preencha os valores obrigatórios.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+    if openai_api_key:
+        provider = "openai"
+        api_key = openai_api_key
+        embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+    elif google_api_key:
+        provider = "gemini"
+        api_key = google_api_key
+        embedding_model = os.getenv("GOOGLE_EMBEDDING_MODEL", "models/embedding-001")
     else:
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            print(
-                "Variável de ambiente GOOGLE_API_KEY não encontrada. "
-                "Copie .env.example para .env e preencha os valores obrigatórios.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+        print(
+            "Nenhuma chave de API encontrada. "
+            "Defina OPENAI_API_KEY ou GOOGLE_API_KEY no .env.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     pdf_path = os.getenv("PDF_PATH", "document.pdf")
     connection_string = os.getenv(
-        "CONNECTION_STRING",
+        "DATABASE_URL",
         "postgresql+psycopg://postgres:postgres@localhost:5432/rag",
     )
+    collection_name = os.getenv("PG_VECTOR_COLLECTION_NAME", "pdf_documents")
 
     return SimpleNamespace(
         provider=provider,
         api_key=api_key,
+        embedding_model=embedding_model,
         pdf_path=pdf_path,
         connection_string=connection_string,
+        collection_name=collection_name,
     )

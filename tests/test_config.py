@@ -7,107 +7,97 @@ sys.path.insert(0, "src")
 from config import get_config
 
 
-def _env(**kwargs):
-    """Returns a minimal valid env dict merged with kwargs."""
-    base = {
-        "PROVIDER": "openai",
-        "OPENAI_API_KEY": "sk-test",
-        "PDF_PATH": "document.pdf",
-        "CONNECTION_STRING": "postgresql+psycopg://postgres:postgres@localhost:5432/rag",
-    }
-    base.update(kwargs)
-    return {k: v for k, v in base.items() if v is not None}
-
-
-class TestMissingProvider:
-    def test_missing_provider_exits_with_code_1(self, capsys):
-        env = _env(PROVIDER=None, OPENAI_API_KEY=None)
-        with patch.dict("os.environ", env, clear=True):
+class TestNoApiKey:
+    def test_no_api_keys_exits_with_code_1(self, capsys):
+        with patch.dict("os.environ", {}, clear=True):
             with pytest.raises(SystemExit) as exc:
                 get_config()
         assert exc.value.code == 1
         captured = capsys.readouterr()
-        assert "PROVIDER" in captured.err
-        assert "não encontrada" in captured.err
-
-
-class TestInvalidProvider:
-    def test_invalid_provider_exits_with_code_1(self, capsys):
-        env = _env(PROVIDER="aws")
-        with patch.dict("os.environ", env, clear=True):
-            with pytest.raises(SystemExit) as exc:
-                get_config()
-        assert exc.value.code == 1
-        captured = capsys.readouterr()
-        assert "aws" in captured.err
-        assert "openai" in captured.err
-        assert "gemini" in captured.err
-
-    def test_provider_capitalised_is_invalid(self, capsys):
-        env = _env(PROVIDER="OpenAI")
-        with patch.dict("os.environ", env, clear=True):
-            with pytest.raises(SystemExit) as exc:
-                get_config()
-        assert exc.value.code == 1
+        assert "OPENAI_API_KEY" in captured.err or "GOOGLE_API_KEY" in captured.err
 
 
 class TestProviderOpenAI:
-    def test_valid_openai_config_returns_namespace(self):
-        env = _env(PROVIDER="openai", OPENAI_API_KEY="sk-test")
+    def test_openai_key_selects_openai_provider(self):
+        env = {"OPENAI_API_KEY": "sk-test"}
         with patch.dict("os.environ", env, clear=True):
             cfg = get_config()
         assert cfg.provider == "openai"
         assert cfg.api_key == "sk-test"
 
-    def test_missing_openai_api_key_exits_with_code_1(self, capsys):
-        env = _env(PROVIDER="openai", OPENAI_API_KEY=None)
+    def test_openai_default_embedding_model(self):
+        env = {"OPENAI_API_KEY": "sk-test"}
         with patch.dict("os.environ", env, clear=True):
-            with pytest.raises(SystemExit) as exc:
-                get_config()
-        assert exc.value.code == 1
-        captured = capsys.readouterr()
-        assert "OPENAI_API_KEY" in captured.err
+            cfg = get_config()
+        assert cfg.embedding_model == "text-embedding-3-small"
+
+    def test_openai_custom_embedding_model(self):
+        env = {"OPENAI_API_KEY": "sk-test", "OPENAI_EMBEDDING_MODEL": "text-embedding-ada-002"}
+        with patch.dict("os.environ", env, clear=True):
+            cfg = get_config()
+        assert cfg.embedding_model == "text-embedding-ada-002"
+
+    def test_openai_takes_priority_when_both_keys_set(self):
+        env = {"OPENAI_API_KEY": "sk-test", "GOOGLE_API_KEY": "AIza-test"}
+        with patch.dict("os.environ", env, clear=True):
+            cfg = get_config()
+        assert cfg.provider == "openai"
 
 
 class TestProviderGemini:
-    def test_valid_gemini_config_returns_namespace(self):
-        env = {"PROVIDER": "gemini", "GOOGLE_API_KEY": "AIza-test"}
+    def test_google_key_selects_gemini_provider(self):
+        env = {"GOOGLE_API_KEY": "AIza-test"}
         with patch.dict("os.environ", env, clear=True):
             cfg = get_config()
         assert cfg.provider == "gemini"
         assert cfg.api_key == "AIza-test"
 
-    def test_missing_google_api_key_exits_with_code_1(self, capsys):
-        env = {"PROVIDER": "gemini"}
+    def test_gemini_default_embedding_model(self):
+        env = {"GOOGLE_API_KEY": "AIza-test"}
         with patch.dict("os.environ", env, clear=True):
-            with pytest.raises(SystemExit) as exc:
-                get_config()
-        assert exc.value.code == 1
-        captured = capsys.readouterr()
-        assert "GOOGLE_API_KEY" in captured.err
+            cfg = get_config()
+        assert cfg.embedding_model == "models/embedding-001"
+
+    def test_gemini_custom_embedding_model(self):
+        env = {"GOOGLE_API_KEY": "AIza-test", "GOOGLE_EMBEDDING_MODEL": "models/embedding-002"}
+        with patch.dict("os.environ", env, clear=True):
+            cfg = get_config()
+        assert cfg.embedding_model == "models/embedding-002"
 
 
 class TestDefaults:
     def test_pdf_path_defaults_to_document_pdf(self):
-        env = {"PROVIDER": "openai", "OPENAI_API_KEY": "sk-test"}
+        env = {"OPENAI_API_KEY": "sk-test"}
         with patch.dict("os.environ", env, clear=True):
             cfg = get_config()
         assert cfg.pdf_path == "document.pdf"
 
-    def test_connection_string_has_default(self):
-        env = {"PROVIDER": "openai", "OPENAI_API_KEY": "sk-test"}
+    def test_database_url_has_default(self):
+        env = {"OPENAI_API_KEY": "sk-test"}
         with patch.dict("os.environ", env, clear=True):
             cfg = get_config()
         assert cfg.connection_string == "postgresql+psycopg://postgres:postgres@localhost:5432/rag"
 
-    def test_custom_pdf_path_is_respected(self):
-        env = _env(PDF_PATH="/data/my_report.pdf")
+    def test_collection_name_defaults_to_pdf_documents(self):
+        env = {"OPENAI_API_KEY": "sk-test"}
         with patch.dict("os.environ", env, clear=True):
             cfg = get_config()
-        assert cfg.pdf_path == "/data/my_report.pdf"
+        assert cfg.collection_name == "pdf_documents"
 
-    def test_custom_connection_string_is_respected(self):
-        env = _env(CONNECTION_STRING="postgresql+psycopg://user:pass@host:5433/mydb")
+    def test_custom_pdf_path_is_respected(self):
+        env = {"OPENAI_API_KEY": "sk-test", "PDF_PATH": "/data/report.pdf"}
+        with patch.dict("os.environ", env, clear=True):
+            cfg = get_config()
+        assert cfg.pdf_path == "/data/report.pdf"
+
+    def test_custom_database_url_is_respected(self):
+        env = {"OPENAI_API_KEY": "sk-test", "DATABASE_URL": "postgresql+psycopg://user:pass@host:5433/mydb"}
         with patch.dict("os.environ", env, clear=True):
             cfg = get_config()
         assert cfg.connection_string == "postgresql+psycopg://user:pass@host:5433/mydb"
+
+    def test_custom_collection_name_is_respected(self):
+        env = {"OPENAI_API_KEY": "sk-test", "PG_VECTOR_COLLECTION_NAME": "my_collection"}
+        with patch.dict("os.environ", env, clear=True):
+            cfg = get_config()
+        assert cfg.collection_name == "my_collection"
