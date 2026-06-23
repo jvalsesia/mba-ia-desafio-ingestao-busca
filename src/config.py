@@ -1,12 +1,9 @@
 import os
 import sys
 from types import SimpleNamespace
-from dotenv import load_dotenv
 
 
 def get_config() -> SimpleNamespace:
-    load_dotenv()
-
     openai_api_key = os.getenv("OPENAI_API_KEY")
     google_api_key = os.getenv("GOOGLE_API_KEY")
 
@@ -31,7 +28,7 @@ def get_config() -> SimpleNamespace:
         "DATABASE_URL",
         "postgresql+psycopg://postgres:postgres@localhost:5432/rag",
     )
-    collection_name = os.getenv("PG_VECTOR_COLLECTION_NAME", "pdf_documents")
+    collection_name = os.getenv("PG_VECTOR_COLLECTION_NAME") or "pdf_documents"
 
     return SimpleNamespace(
         provider=provider,

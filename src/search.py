@@ -59,9 +59,9 @@ def search_prompt(question=None):
     prompt = PROMPT_TEMPLATE.format(contexto=contexto, pergunta=question)
 
     if cfg.provider == "openai":
-        llm = ChatOpenAI(model="gpt-5-nano", timeout=30)
+        llm = ChatOpenAI(model="gpt-5-nano", timeout=60)
     else:
-        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", request_timeout=30)
+        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", request_timeout=60)
 
     try:
         response = llm.invoke(prompt)
