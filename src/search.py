@@ -56,3 +56,18 @@ def search_prompt(question=None):
         return "Nenhum documento encontrado no banco. Execute python src/ingest.py primeiro."
 
     contexto = "\n\n".join(doc.page_content for doc, _ in results)
+    prompt = PROMPT_TEMPLATE.format(contexto=contexto, pergunta=question)
+
+    if cfg.provider == "openai":
+        llm = ChatOpenAI(model="gpt-5-nano", timeout=30)
+    else:
+        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", request_timeout=30)
+
+    try:
+        response = llm.invoke(prompt)
+    except (openai.APITimeoutError, google.api_core.exceptions.DeadlineExceeded):
+        return "Tempo limite excedido ao chamar a LLM. Tente novamente."
+    except (openai.APIError, google.api_core.exceptions.GoogleAPIError) as e:
+        return f"Erro ao obter resposta da LLM: {str(e)}."
+
+    return response.content
