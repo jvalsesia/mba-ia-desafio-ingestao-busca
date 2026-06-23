@@ -1,12 +1,8 @@
-import os
-from dotenv import load_dotenv
+from config import get_config
 
-load_dotenv()
-
-PDF_PATH = os.getenv("PDF_PATH")
 
 def ingest_pdf():
-    pass
+    cfg = get_config()
 
 
 if __name__ == "__main__":
